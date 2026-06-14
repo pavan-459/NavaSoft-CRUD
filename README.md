@@ -121,7 +121,9 @@ navasoft/
 │   │   │   │   │   └── register/route.ts        # User registration
 │   │   │   │   └── videos/
 │   │   │   │       ├── route.ts                 # GET list / POST upload
-│   │   │   │       └── [id]/route.ts            # GET status+results / DELETE
+│   │   │   │       └── [id]/
+│   │   │   │           ├── route.ts             # GET status+results / DELETE
+│   │   │   │           └── stream/route.ts      # GET video file (range requests)
 │   │   │   ├── dashboard/page.tsx               # Main app page
 │   │   │   ├── login/page.tsx
 │   │   │   ├── register/page.tsx
@@ -200,12 +202,14 @@ MONGODB_URI=mongodb://localhost:27017/navasoft
 NEXTAUTH_SECRET=any-random-32-character-string
 NEXTAUTH_URL=http://localhost:3000
 ML_SERVER_URL=http://localhost:5000
-FFMPEG_PATH=/usr/bin/ffmpeg        # run: which ffmpeg  (Mac/Linux)
-                                   # or:  where ffmpeg  (Windows)
+
+# Optional — only needed if ffmpeg is NOT in your system PATH
+# Mac/Linux: run `which ffmpeg` to find the path
+# Windows:   run `where ffmpeg` to find the path
+# FFMPEG_PATH=/usr/local/bin/ffmpeg
 ```
 
-> **Windows note:** Set `FFMPEG_PATH` to the full path of your `ffmpeg.exe`.
-> Run `where ffmpeg` in a terminal to find it.
+> **FFmpeg path:** If `ffmpeg` is already in your system PATH (which is the case after a standard install), you can leave `FFMPEG_PATH` unset and it will be detected automatically.
 
 ### 3. Set up the Flask ML server
 
@@ -293,6 +297,7 @@ You should see:
 | `GET` | `/api/videos` | List all videos for current user | Yes |
 | `POST` | `/api/videos` | Upload a video (multipart/form-data, field: `video`) | Yes |
 | `GET` | `/api/videos/:id` | Get status and results for a specific video | Yes |
+| `GET` | `/api/videos/:id/stream` | Stream the original video file (supports HTTP range) | Yes |
 | `DELETE` | `/api/videos/:id` | Delete a video | Yes |
 
 **Video document shape:**
