@@ -6,8 +6,8 @@ import Providers from "./providers";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "NavaSoft CRUD — Video Detection",
-  description: "Upload videos and detect objects using YOLOv8",
+  title: "PixelLens — Self-Hosted AI Vision",
+  description: "Detect objects in videos and images using YOLOv8. Self-hosted, free, open-source.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

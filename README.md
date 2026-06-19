@@ -1,45 +1,113 @@
-# NavaSoft CRUD — Video Object Detection App
+# PixelLens
 
-A full-stack web application that lets authenticated users upload videos, automatically extracts frames using FFmpeg, runs YOLOv8 object detection on each frame via a Flask ML server, and streams real-time progress back to the browser using Socket.IO.
+**Self-hosted, open-source AI vision — detect objects in videos and images instantly.**
+
+No API fees. No data sent to third parties. One command to run.
+
+```bash
+docker-compose up
+```
+
+Open `http://localhost:3000` and start analyzing.
+
+---
+
+## What it does
+
+- Upload a **video** → PixelLens extracts frames at 1 fps and runs YOLOv8 object detection on each frame → get a full timeline of every detected object
+- Upload an **image** → detection results appear in seconds with bounding boxes drawn directly on the photo
+- All results stored in MongoDB and exportable as JSON
+- Real-time progress updates via Socket.IO — no page refresh needed
+
+---
+
+## Why
+
+Cloud video AI APIs (AWS Rekognition Video, Google Video Intelligence) charge per minute and send your footage to their servers. PixelLens runs entirely on your own machine or server — free, private, and customizable.
 
 ---
 
 ## Tech Stack
 
-### Frontend + Backend (Monolith)
-| Technology | Purpose |
+| Layer | Technology |
 |---|---|
-| **Next.js 16** (App Router) | Full-stack framework — UI and API routes in one |
-| **TypeScript** | Type safety across the entire app |
-| **Tailwind CSS** | Utility-first styling |
-| **NextAuth.js** | Authentication — JWT sessions, Credentials provider |
-| **Socket.IO (client)** | Real-time status updates in the browser |
+| Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS |
+| Auth | NextAuth.js (JWT, Credentials provider) |
+| Real-time | Socket.IO |
+| Video processing | FFmpeg via fluent-ffmpeg |
+| Object detection | YOLOv8n (Ultralytics) via Flask |
+| Database | MongoDB + Mongoose |
+| Containerization | Docker + docker-compose |
 
-### Backend / API Layer
-| Technology | Purpose |
-|---|---|
-| **Node.js custom server** | Boots Next.js + attaches Socket.IO on the same port |
-| **Socket.IO (server)** | Pushes live processing events to connected clients |
-| **Mongoose** | MongoDB ODM — schema definition and queries |
-| **Multer** | Multipart file upload handling |
-| **fluent-ffmpeg** | Node.js wrapper around FFmpeg for frame extraction |
-| **bcryptjs** | Password hashing |
-| **axios** | HTTP calls from the server to the Flask ML server |
+---
 
-### ML Server
-| Technology | Purpose |
-|---|---|
-| **Python 3.12** | Runtime |
-| **Flask** | Lightweight HTTP server exposing the `/detect` endpoint |
-| **Flask-CORS** | Cross-origin requests from the Next.js server |
-| **Ultralytics YOLOv8** | Pre-trained object detection model (yolov8n) |
-| **Pillow** | Image decoding from base64 |
+## Quick Start (Docker)
 
-### Database & Storage
-| Technology | Purpose |
+**Prerequisites:** Docker Desktop — [download here](https://www.docker.com/products/docker-desktop/)
+
+```bash
+git clone https://github.com/pavan-459/NavaSoft-CRUD.git
+cd NavaSoft-CRUD
+git checkout product
+
+# Copy env template and set your secret
+cp .env.docker.example .env
+
+docker-compose up
+```
+
+> First run downloads the YOLOv8n model weights (~6 MB) and PyTorch dependencies (~500 MB). Subsequent starts are fast.
+
+Open **http://localhost:3000**, register an account, and start analyzing.
+
+---
+
+## Manual Setup (without Docker)
+
+**Prerequisites:**
+
+| Tool | Version |
 |---|---|
-| **MongoDB** | Primary database — users and video documents |
-| **Local filesystem** | Temporary storage for uploaded videos and extracted frames |
+| Node.js | 18+ |
+| Python | 3.10+ |
+| MongoDB | 6+ |
+| FFmpeg | Any recent |
+
+```bash
+# 1. Clone
+git clone https://github.com/pavan-459/NavaSoft-CRUD.git
+cd NavaSoft-CRUD
+git checkout product
+
+# 2. Next.js app
+cd app
+npm install
+cp ../.env.local.example .env.local   # edit values
+node server.js
+
+# 3. Flask ML server (separate terminal)
+cd ml-server
+python -m pip install -r requirements.txt
+python app.py
+
+# 4. MongoDB
+# Mac/Linux: mongod
+# Windows: starts automatically as a Windows service
+```
+
+---
+
+## Environment Variables
+
+Copy `.env.local.example` to `app/.env.local` and fill in:
+
+| Variable | Description | Default |
+|---|---|---|
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/pixellens` |
+| `NEXTAUTH_SECRET` | Random secret for JWT signing | — (required) |
+| `NEXTAUTH_URL` | App base URL | `http://localhost:3000` |
+| `ML_SERVER_URL` | Flask server URL | `http://localhost:5000` |
+| `FFMPEG_PATH` | Full path to ffmpeg binary | Auto-detected from PATH |
 
 ---
 
@@ -51,227 +119,57 @@ Browser
   │  HTTP + WebSocket
   ▼
 ┌─────────────────────────────────────────┐
-│  Next.js App  (localhost:3000)          │
+│  Next.js App  (port 3000)               │
 │                                         │
-│  ┌──────────┐   ┌─────────────────────┐ │
-│  │  React   │   │   API Routes        │ │
-│  │  Pages   │   │  /api/auth/*        │ │
-│  │  + UI    │   │  /api/videos        │ │
-│  └──────────┘   │  /api/videos/[id]   │ │
-│                 └─────────────────────┘ │
+│  React UI          API Routes           │
+│  - Video tab    /api/videos             │
+│  - Image tab    /api/images             │
+│                 /api/auth/*             │
 │                                         │
-│  ┌─────────────────────────────────────┐ │
-│  │  Socket.IO Server                   │ │
-│  │  Emits: status, progress events     │ │
-│  └─────────────────────────────────────┘ │
-└──────────────┬──────────────────────────┘
-               │
-       ┌───────┴────────┐
-       │                │
-       ▼                ▼
-┌──────────────┐  ┌─────────────────────┐
-│   MongoDB    │  │  Flask ML Server    │
-│  (port 27017)│  │  (localhost:5000)   │
-│              │  │                     │
-│  - users     │  │  POST /detect       │
-│  - videos    │  │  YOLOv8 inference   │
-└──────────────┘  └─────────────────────┘
+│  Socket.IO server (real-time progress)  │
+└────────────┬────────────────────────────┘
+             │
+      ┌──────┴───────┐
+      ▼              ▼
+┌──────────┐  ┌──────────────────┐
+│ MongoDB  │  │  Flask ML Server │
+│ port 27017│  │  port 5000       │
+│          │  │  POST /detect    │
+│ users    │  │  YOLOv8 inference│
+│ videos   │  └──────────────────┘
+│ images   │
+└──────────┘
 ```
 
-### Processing Pipeline (after upload)
+### Video processing pipeline
+
 ```
-Upload MP4/MOV
-      │
-      ▼
-Save to disk (uploads/<uuid>.mp4)
-Create Video document { status: "pending" }
+Upload MP4/MOV → save to disk → create DB record (status: pending)
       │
       ▼  (async, non-blocking)
-FFmpeg extracts frames at 1 fps
-→ uploads/frames/<uuid>/frame-0001.png ...
-      │  emit: status "extracting"
+FFmpeg extracts 1 frame/sec → uploads/frames/<id>/frame-0001.png ...
+      │  Socket.IO: status "extracting"
       ▼
 For each frame:
-  Read PNG → base64 → POST /detect (Flask)
-  Flask runs YOLOv8 → returns objects[]
-  Store result
-      │  emit: progress { frame, total }
+  base64 encode → POST /detect (Flask) → YOLOv8 → objects[]
+      │  Socket.IO: progress { frame, total }
       ▼
-Save all results to MongoDB
-Update status → "completed"
-Delete temp frames
-      │  emit: status "completed"
+Save results to MongoDB → status "completed"
+      │  Socket.IO: status "completed" + full results
       ▼
-Browser renders timeline + bounding boxes
+Dashboard renders timeline + bounding boxes + video player
 ```
 
----
-
-## Project Structure
+### Image pipeline
 
 ```
-navasoft/
-├── app/                          # Next.js full-stack application
-│   ├── server.js                 # Custom Node server (Next.js + Socket.IO)
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── api/
-│   │   │   │   ├── auth/
-│   │   │   │   │   ├── [...nextauth]/route.ts   # NextAuth handler
-│   │   │   │   │   └── register/route.ts        # User registration
-│   │   │   │   └── videos/
-│   │   │   │       ├── route.ts                 # GET list / POST upload
-│   │   │   │       └── [id]/
-│   │   │   │           ├── route.ts             # GET status+results / DELETE
-│   │   │   │           └── stream/route.ts      # GET video file (range requests)
-│   │   │   ├── dashboard/page.tsx               # Main app page
-│   │   │   ├── login/page.tsx
-│   │   │   ├── register/page.tsx
-│   │   │   ├── layout.tsx
-│   │   │   └── providers.tsx                    # SessionProvider wrapper
-│   │   ├── components/
-│   │   │   ├── VideoUpload.tsx                  # Drag-and-drop uploader
-│   │   │   ├── ProgressTracker.tsx              # Live Socket.IO status
-│   │   │   ├── ResultsViewer.tsx                # Timeline + bounding boxes
-│   │   │   ├── VideoPlayer.tsx
-│   │   │   └── Navbar.tsx
-│   │   ├── lib/
-│   │   │   ├── db.ts                            # Mongoose connection singleton
-│   │   │   ├── auth.ts                          # NextAuth config
-│   │   │   ├── videoProcessor.ts                # FFmpeg + Flask orchestration
-│   │   │   └── models/
-│   │   │       ├── User.ts
-│   │   │       └── Video.ts
-│   │   └── middleware.ts                        # Protects /dashboard routes
-│   ├── .env.local                               # Environment variables (not committed)
-│   └── package.json
-└── ml-server/                    # Python Flask + YOLOv8
-    ├── app.py
-    └── requirements.txt
+Upload JPEG/PNG/WebP → base64 encode → POST /detect (Flask)
+      │  (synchronous — ~1-2s on CPU)
+      ▼
+YOLOv8 inference → objects[]
+      ▼
+Save to MongoDB → render photo with bounding box overlay
 ```
-
----
-
-## Prerequisites
-
-Make sure the following are installed before running the project:
-
-| Tool | Version | Install |
-|---|---|---|
-| Node.js | 18+ | https://nodejs.org |
-| Python | 3.10+ | https://python.org |
-| MongoDB | 6+ | https://www.mongodb.com/try/download/community |
-| FFmpeg | Any recent | https://ffmpeg.org/download.html |
-
-Verify installations:
-```bash
-node --version
-python --version
-ffmpeg -version
-mongod --version
-```
-
----
-
-## Local Setup
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/pavan-459/NavaSoft-CRUD.git
-cd NavaSoft-CRUD
-```
-
-### 2. Set up the Next.js app
-
-```bash
-cd app
-npm install
-```
-
-Create your environment file:
-
-```bash
-cp ../.env.local.example .env.local
-```
-
-Open `.env.local` and fill in the values:
-
-```env
-MONGODB_URI=mongodb://localhost:27017/navasoft
-NEXTAUTH_SECRET=any-random-32-character-string
-NEXTAUTH_URL=http://localhost:3000
-ML_SERVER_URL=http://localhost:5000
-
-# Optional — only needed if ffmpeg is NOT in your system PATH
-# Mac/Linux: run `which ffmpeg` to find the path
-# Windows:   run `where ffmpeg` to find the path
-# FFMPEG_PATH=/usr/local/bin/ffmpeg
-```
-
-> **FFmpeg path:** If `ffmpeg` is already in your system PATH (which is the case after a standard install), you can leave `FFMPEG_PATH` unset and it will be detected automatically.
-
-### 3. Set up the Flask ML server
-
-```bash
-cd ml-server
-python -m pip install -r requirements.txt
-```
-
-> This downloads PyTorch + YOLOv8 (~500 MB). Only needed once.
-> The YOLOv8 model weights (`yolov8n.pt`, ~6 MB) download automatically on first run.
-
----
-
-## Running the Application
-
-You need **3 things running** simultaneously. Open separate terminals for each:
-
-### Terminal 1 — MongoDB
-MongoDB runs as a background service on most systems after install.
-
-**Mac/Linux:**
-```bash
-mongod
-```
-**Windows:** MongoDB starts automatically as a Windows service after installation.
-Verify it's running: `Get-Service -Name MongoDB` (should show `Running`).
-
-### Terminal 2 — Next.js App
-
-```bash
-cd app
-node server.js
-```
-
-You should see:
-```
-> Ready on http://localhost:3000
-```
-
-### Terminal 3 — Flask ML Server
-
-```bash
-cd ml-server
-python app.py
-```
-
-You should see:
-```
- * Running on http://0.0.0.0:5000
-```
-
----
-
-## Using the App
-
-1. Open `http://localhost:3000` in your browser
-2. Register a new account at `/register`
-3. Log in at `/login`
-4. On the dashboard, drag and drop an `.mp4` or `.mov` file (max 100 MB)
-5. Watch the live status update: **Queued → Extracting frames → Running YOLO → Completed**
-6. Explore the results — timeline, bounding box overlay, detection table
-7. Click **Export JSON** to download the full detection data
 
 ---
 
@@ -279,102 +177,108 @@ You should see:
 
 ### Auth
 
-| Method | Endpoint | Description | Auth required |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | Create a new user account | No |
-| `POST` | `/api/auth/signin` | Sign in (NextAuth) | No |
-| `GET` | `/api/auth/signout` | Sign out | Yes |
-
-**Register body:**
-```json
-{ "name": "John", "email": "john@example.com", "password": "secret123" }
-```
+| Method | Endpoint | Body |
+|---|---|---|
+| `POST` | `/api/auth/register` | `{ name, email, password }` |
+| `POST` | `/api/auth/signin` | NextAuth credentials |
 
 ### Videos
 
-| Method | Endpoint | Description | Auth required |
-|---|---|---|---|
-| `GET` | `/api/videos` | List all videos for current user | Yes |
-| `POST` | `/api/videos` | Upload a video (multipart/form-data, field: `video`) | Yes |
-| `GET` | `/api/videos/:id` | Get status and results for a specific video | Yes |
-| `GET` | `/api/videos/:id/stream` | Stream the original video file (supports HTTP range) | Yes |
-| `DELETE` | `/api/videos/:id` | Delete a video | Yes |
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/videos` | List all videos for current user |
+| `POST` | `/api/videos` | Upload video (`multipart/form-data`, field: `video`) |
+| `GET` | `/api/videos/:id` | Get video status + detection results |
+| `GET` | `/api/videos/:id/stream` | Stream video file (HTTP range supported) |
+| `DELETE` | `/api/videos/:id` | Delete video + file from disk |
 
-**Video document shape:**
-```json
-{
-  "uploadId": "uuid-string",
-  "originalName": "my-video.mp4",
-  "status": "completed",
-  "results": [
-    {
-      "frameIndex": 0,
-      "timestamp": 0,
-      "objects": [
-        { "label": "person", "confidence": 0.91, "bbox": [120, 45, 80, 200] }
-      ]
-    }
-  ]
-}
-```
-
-### Flask ML Server
+### Images
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/health` | Readiness check |
-| `POST` | `/detect` | Run YOLOv8 on a base64 image |
+| `GET` | `/api/images` | List all images for current user |
+| `POST` | `/api/images` | Upload image + run detection synchronously |
+| `GET` | `/api/images/:id` | Get image + detection results |
+| `GET` | `/api/images/:id/file` | Serve the original image file |
+| `DELETE` | `/api/images/:id` | Delete image + file from disk |
 
-**Detect request:**
-```json
-{ "image": "<base64-encoded-PNG>" }
-```
+### Flask ML Server
 
-**Detect response:**
-```json
-{
-  "objects": [
-    { "label": "car", "confidence": 0.87, "bbox": [300, 90, 150, 100] }
-  ]
-}
-```
+| Method | Endpoint | Body | Response |
+|---|---|---|---|
+| `GET` | `/health` | — | `{ status: "ok" }` |
+| `POST` | `/detect` | `{ image: "<base64>" }` | `{ objects: [{ label, confidence, bbox }] }` |
 
 `bbox` format: `[x, y, width, height]` in pixels.
 
 ---
 
-## MongoDB Collections
+## Project Structure
 
-### `users`
-```json
-{
-  "_id": "ObjectId",
-  "name": "string",
-  "email": "string (unique)",
-  "password": "bcrypt hash",
-  "createdAt": "Date",
-  "updatedAt": "Date"
-}
+```
+NavaSoft-CRUD/
+├── app/                              # Next.js full-stack app
+│   ├── Dockerfile
+│   ├── server.js                     # Custom Node server (Next.js + Socket.IO)
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── api/
+│   │   │   │   ├── auth/
+│   │   │   │   │   ├── [...nextauth]/route.ts
+│   │   │   │   │   └── register/route.ts
+│   │   │   │   ├── videos/
+│   │   │   │   │   ├── route.ts
+│   │   │   │   │   └── [id]/
+│   │   │   │   │       ├── route.ts
+│   │   │   │   │       └── stream/route.ts
+│   │   │   │   └── images/
+│   │   │   │       ├── route.ts
+│   │   │   │       └── [id]/
+│   │   │   │           ├── route.ts
+│   │   │   │           └── file/route.ts
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── login/page.tsx
+│   │   │   └── register/page.tsx
+│   │   ├── components/
+│   │   │   ├── VideoUpload.tsx
+│   │   │   ├── VideoPlayer.tsx
+│   │   │   ├── ProgressTracker.tsx
+│   │   │   ├── ResultsViewer.tsx
+│   │   │   ├── ImageUpload.tsx
+│   │   │   ├── ImageResult.tsx
+│   │   │   └── Navbar.tsx
+│   │   ├── lib/
+│   │   │   ├── db.ts
+│   │   │   ├── auth.ts
+│   │   │   ├── videoProcessor.ts
+│   │   │   └── models/
+│   │   │       ├── User.ts
+│   │   │       ├── Video.ts
+│   │   │       └── Image.ts
+│   │   └── middleware.ts
+│   └── package.json
+├── ml-server/                        # Flask + YOLOv8
+│   ├── Dockerfile
+│   ├── app.py
+│   └── requirements.txt
+├── docker-compose.yml
+└── README.md
 ```
 
-### `videos`
-```json
-{
-  "_id": "ObjectId",
-  "uploadId": "string (uuid, unique)",
-  "filename": "string",
-  "originalName": "string",
-  "status": "pending | extracting | detecting | completed | failed",
-  "userId": "ObjectId (ref: User)",
-  "results": [
-    {
-      "frameIndex": "number",
-      "timestamp": "number (seconds)",
-      "objects": [{ "label": "string", "confidence": "number", "bbox": "[x,y,w,h]" }]
-    }
-  ],
-  "error": "string (only on failure)",
-  "createdAt": "Date",
-  "updatedAt": "Date"
-}
-```
+---
+
+## Contributing
+
+Issues and PRs are welcome. The most impactful areas to contribute:
+
+- Support additional model sizes (`yolov8s`, `m`, `l`, `x`) via a UI selector
+- Object tracking across video frames (assign consistent IDs to the same object)
+- Annotated video export (video file with bounding boxes burned in)
+- API key authentication for programmatic access
+- Webhook notifications when video processing completes
+
+---
+
+## License
+
+MIT

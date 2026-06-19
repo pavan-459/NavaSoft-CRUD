@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
-import Video from '@/lib/models/Video';
+import ImageModel from '@/lib/models/Image';
 import path from 'path';
 import fs from 'fs';
 
@@ -12,18 +12,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    if (!id) return NextResponse.json({ error: 'Missing video ID' }, { status: 400 });
-
     await connectDB();
     const userId = (session.user as { id: string }).id;
-    const video = await Video.findOne({ uploadId: id, userId });
+    const image = await ImageModel.findOne({ imageId: id, userId });
 
-    if (!video) return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+    if (!image) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
 
-    return NextResponse.json({ video });
+    return NextResponse.json({ image });
   } catch (err) {
-    console.error('[GET /api/videos/[id]]', err);
-    return NextResponse.json({ error: 'Failed to fetch video' }, { status: 500 });
+    console.error('[GET /api/images/[id]]', err);
+    return NextResponse.json({ error: 'Failed to fetch image' }, { status: 500 });
   }
 }
 
@@ -33,25 +31,23 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    if (!id) return NextResponse.json({ error: 'Missing video ID' }, { status: 400 });
-
     await connectDB();
     const userId = (session.user as { id: string }).id;
-    const video = await Video.findOneAndDelete({ uploadId: id, userId });
+    const image = await ImageModel.findOneAndDelete({ imageId: id, userId });
 
-    if (!video) return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+    if (!image) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
 
-    // Clean up the uploaded video file from disk
+    // Clean up file from disk
     try {
-      const filePath = path.join(process.cwd(), 'uploads', video.filename);
+      const filePath = path.join(process.cwd(), 'uploads', image.filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     } catch (e) {
-      console.warn('[DELETE /api/videos/[id]] File cleanup failed:', e);
+      console.warn('[DELETE /api/images/[id]] File cleanup failed:', e);
     }
 
-    return NextResponse.json({ message: 'Video deleted successfully' });
+    return NextResponse.json({ message: 'Image deleted' });
   } catch (err) {
-    console.error('[DELETE /api/videos/[id]]', err);
-    return NextResponse.json({ error: 'Failed to delete video' }, { status: 500 });
+    console.error('[DELETE /api/images/[id]]', err);
+    return NextResponse.json({ error: 'Failed to delete image' }, { status: 500 });
   }
 }

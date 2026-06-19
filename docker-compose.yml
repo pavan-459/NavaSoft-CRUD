@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  ml-server:
+    build: ./ml-server
+    ports:
+      - "5000:5000"
+    volumes:
+      # Cache downloaded YOLO model weights across restarts
+      - yolo_cache:/app
+    restart: unless-stopped
+
+  app:
+    build: ./app
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/pixellens
+      - NEXTAUTH_URL=http://localhost:3000
+      # Change this to a random 32+ character string before deploying
+      - NEXTAUTH_SECRET=change-me-to-a-real-secret-before-deploying
+      - ML_SERVER_URL=http://ml-server:5000
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      - mongo
+      - ml-server
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  yolo_cache:
+  uploads:
