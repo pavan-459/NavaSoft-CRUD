@@ -12,7 +12,8 @@ CORS(app)
 # 20 MB max request size — base64 encoding inflates ~33%, so this covers ~15 MB raw images
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 
-model = YOLO("yolov8n.pt")
+MODEL_PATH = os.environ.get("YOLO_MODEL_PATH", "yolov8n.pt")
+model = YOLO(MODEL_PATH)
 
 # Warm the model with a blank image so the first real request isn't slow
 _warmup = Image.new("RGB", (64, 64))

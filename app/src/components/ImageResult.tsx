@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface DetectionObject {
   label: string;
@@ -24,7 +24,7 @@ export default function ImageResult({ imageId, originalName, objects }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  const drawBoxes = () => {
+  const drawBoxes = useCallback(() => {
     const img = imgRef.current;
     const canvas = canvasRef.current;
     if (!img || !canvas) return;
@@ -60,24 +60,22 @@ export default function ImageResult({ imageId, originalName, objects }: Props) {
       ctx.fillStyle = '#fff';
       ctx.fillText(label, sx + 4, sy - 4);
     });
-  };
+  }, [objects]);
 
   useEffect(() => {
     if (imgLoaded) drawBoxes();
-  }, [imgLoaded, objects]);
+  }, [imgLoaded, drawBoxes]);
 
-  // Redraw on window resize
   useEffect(() => {
     const handler = () => { if (imgLoaded) drawBoxes(); };
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
-  }, [imgLoaded]);
+  }, [imgLoaded, drawBoxes]);
 
   const uniqueLabels = [...new Set(objects.map((o) => o.label))];
 
   return (
     <div className="space-y-4">
-      {/* Summary bar */}
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-sm font-medium text-gray-700">{originalName}</span>
         <span className="text-xs bg-violet-100 text-violet-700 px-2.5 py-0.5 rounded-full font-medium">
@@ -90,8 +88,8 @@ export default function ImageResult({ imageId, originalName, objects }: Props) {
         ))}
       </div>
 
-      {/* Image + canvas overlay */}
       <div className="relative inline-block w-full rounded-xl overflow-hidden bg-gray-900">
+        {/* eslint-disable-next-line @next/next/no-img-element -- canvas overlay requires naturalWidth/naturalHeight from the raw img element */}
         <img
           ref={imgRef}
           src={`/api/images/${imageId}/file`}
@@ -99,13 +97,9 @@ export default function ImageResult({ imageId, originalName, objects }: Props) {
           className="w-full object-contain max-h-[480px]"
           onLoad={() => setImgLoaded(true)}
         />
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 pointer-events-none"
-        />
+        <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
       </div>
 
-      {/* Detection table */}
       {objects.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-gray-200">
           <table className="w-full text-sm">
@@ -125,10 +119,7 @@ export default function ImageResult({ imageId, originalName, objects }: Props) {
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-[80px]">
-                        <div
-                          className="bg-violet-500 h-1.5 rounded-full"
-                          style={{ width: `${obj.confidence * 100}%` }}
-                        />
+                        <div className="bg-violet-500 h-1.5 rounded-full" style={{ width: `${obj.confidence * 100}%` }} />
                       </div>
                       <span className="text-gray-600">{Math.round(obj.confidence * 100)}%</span>
                     </div>
@@ -145,7 +136,6 @@ export default function ImageResult({ imageId, originalName, objects }: Props) {
         <p className="text-sm text-gray-500 text-center py-6">No objects detected in this image.</p>
       )}
 
-      {/* JSON export */}
       <button
         onClick={() => {
           const blob = new Blob([JSON.stringify(objects, null, 2)], { type: 'application/json' });

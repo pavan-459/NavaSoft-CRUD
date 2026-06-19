@@ -2,7 +2,12 @@ import path from 'path';
 import fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
 import axios from 'axios';
+import { Server } from 'socket.io';
 import Video from './models/Video';
+
+declare global {
+  var io: Server | undefined;
+}
 
 const ML_SERVER = process.env.ML_SERVER_URL || 'http://localhost:5000';
 

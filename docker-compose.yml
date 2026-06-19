@@ -28,8 +28,11 @@ services:
     build: ./ml-server
     ports:
       - "5000:5000"
+    environment:
+      # Model downloads to /models on first run and is cached by the volume
+      - YOLO_MODEL_PATH=/models/yolov8n.pt
     volumes:
-      - yolo_cache:/home/appuser/.config
+      - yolo_cache:/models
     restart: unless-stopped
     depends_on:
       mongo:

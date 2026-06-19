@@ -66,10 +66,11 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      fetchVideos();
-      fetchImages();
-    }
+    if (status !== 'authenticated') return;
+    void (async () => {
+      await fetchVideos();
+      await fetchImages();
+    })();
   }, [status, fetchVideos, fetchImages]);
 
   const handleVideoUploadComplete = (uploadId: string) => {

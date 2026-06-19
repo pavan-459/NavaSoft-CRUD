@@ -1,6 +1,5 @@
 # ── Stage 1: deps ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS deps
-RUN apk add --no-cache ffmpeg
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci

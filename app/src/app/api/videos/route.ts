@@ -15,7 +15,7 @@ export async function GET() {
 
     await connectDB();
     const userId = (session.user as { id: string }).id;
-    const videos = await Video.find({ userId }).sort({ createdAt: -1 }).select('-framesData');
+    const videos = await Video.find({ userId }).sort({ createdAt: -1 });
     return NextResponse.json({ videos });
   } catch (err) {
     console.error('[GET /api/videos]', err);
@@ -75,7 +75,6 @@ export async function POST(req: NextRequest) {
       originalName: file.name,
       status: 'pending',
       userId,
-      framesData: [],
       results: [],
     });
 
