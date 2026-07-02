@@ -1,4 +1,4 @@
-# NavaSoft CRUD — Video Object Detection App
+# YOLO-video-object-detection — App
 
 A full-stack web application that lets authenticated users upload videos, automatically extracts frames using FFmpeg, runs YOLOv8 object detection on each frame via a Flask ML server, and streams real-time progress back to the browser using Socket.IO.
 
